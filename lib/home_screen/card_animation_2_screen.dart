@@ -36,7 +36,7 @@ class FitrsCardAnimation extends AnimatedDecorator {
               transform: Matrix4.identity()
                 ..setEntry(3, 2, 0.001)
                 ..setRotationZ(value),
-              child: child,
+              child: widgetOne,
             ),
           ],
         );
@@ -73,25 +73,74 @@ class SecondAnimation extends AnimatedDecorator {
 class SecondAnimationCircleWidget extends AnimatedDecorator {
   final Animation cardAnimation;
 
-  SecondAnimationCircleWidget({required this.cardAnimation});
+  final Offset initialOffset;
+
+  SecondAnimationCircleWidget({
+    required this.cardAnimation,
+    required this.initialOffset,
+  });
   @override
   Widget decorator(Widget widgetOne, Widget? widgetTwo) {
     return AnimatedBuilder(
-        animation: cardAnimation,
-        builder: (BuildContext context, Widget? child) {
-          final valueScale = cardAnimation.value;
-          final valueTranslateY = valueScale * (math.pi * 40);
+      animation: cardAnimation,
+      builder: (BuildContext context, Widget? child) {
+        final valueScale = (2.0 - (cardAnimation.value)).clamp(1.0, 2.0);
+        final translateX = initialOffset.dx * (1 - cardAnimation.value);
+        final translateY = initialOffset.dy * (1 - cardAnimation.value);
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.004)
+            ..translate(translateX, translateY, 0.0)
+            ..scale(valueScale, valueScale, -20)
+            ..translate(1.0, 130.0, 0.0),
+          child: widgetOne,
+        );
+      },
+      child: widgetOne,
+    );
+  }
+}
 
-          return Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.0033)
-              ..translate(0.0, valueTranslateY, 0.0)
-              ..scale(valueScale, valueScale, 1.0),
-            child: widgetOne,
-          );
-        },
-        child: widgetOne);
+class TertaryCardAnimation extends AnimatedDecorator {
+  final Animation cardAnimation;
+
+  TertaryCardAnimation({required this.cardAnimation});
+  @override
+  Widget decorator(Widget widgetOne, Widget? widgetTwo) {
+    return AnimatedBuilder(
+      animation: cardAnimation,
+      builder: (context, child) {
+        //firts widget
+        final value = cardAnimation.value * (math.pi * -0.3);
+        //second widget
+        final valueRotationZ = cardAnimation.value * (math.pi * -0.4);
+        final valueTranslateY = cardAnimation.value * (math.pi * 12);
+        final valueTranslateX = cardAnimation.value * (math.pi * 12);
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateZ(valueRotationZ)
+                ..translate(valueTranslateX, -valueTranslateY, 0.0),
+              child: widgetTwo,
+            ),
+            Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..setRotationZ(value),
+              child: widgetOne,
+            ),
+          ],
+        );
+      },
+      child: widgetOne,
+    );
   }
 }
 
@@ -107,17 +156,26 @@ class _CardAnimation2ScreenState extends State<CardAnimation2Screen>
     with TickerProviderStateMixin {
   Widget firtsCardWidget = CustomCardWidget();
   Widget secondCardWidget = CustomCardWidget(
-    colorCard: Colors.white70,
+    colorCard: Colors.white,
   );
-  // Widget circleWidget = CircleWidget();
+  late Widget? circleWidget = CircleWidget(voidCallback: () {});
+
   late AnimationController _cardAnimationController;
   late Animation _cardAnimation;
 
   late AnimationController _cardAnimationSecondContoller;
   late Animation _cardAnimationSecond;
 
+  late AnimationController _cardAnimationTertiaryContoller;
+  late Animation _cardAnimationTertiary;
+
+  late List<Offset> _initialOffsets;
+  late List<Animation> _circleAnimations;
+  final int itemCount = 10;
+
   @override
   void initState() {
+    //----------firts animation----------
     _cardAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -128,8 +186,14 @@ class _CardAnimation2ScreenState extends State<CardAnimation2Screen>
         curve: Curves.easeInOut,
       ),
     );
+
     firtsCardWidget = FitrsCardAnimation(cardAnimation: _cardAnimation)
         .decorator(firtsCardWidget, secondCardWidget);
+    WidgetsBinding.instance.addPostFrameCallback((duration) async {
+      await Future.delayed(const Duration(milliseconds: 800));
+      _cardAnimationController.forward();
+    });
+    //----------firts animation----------
     _cardAnimationSecondContoller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -142,11 +206,41 @@ class _CardAnimation2ScreenState extends State<CardAnimation2Screen>
     );
     firtsCardWidget = SecondAnimation(cardAnimation: _cardAnimationSecond)
         .decorator(firtsCardWidget, null);
-    WidgetsBinding.instance.addPostFrameCallback((duration) async {
-      await Future.delayed(const Duration(milliseconds: 1000));
-      _cardAnimationController.forward();
+
+    _initialOffsets = List.generate(itemCount, (index) {
+      return Offset(
+        (index % 2 == 0) ? -200.0 : 200.0,
+        (index * -150.0),
+      );
     });
 
+    _circleAnimations = List.generate(itemCount, (index) {
+      return Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(
+        CurvedAnimation(
+          parent: _cardAnimationSecondContoller,
+          curve: Curves.easeInOut,
+        ),
+      );
+    });
+    //----------tertiary animation----------
+
+    _cardAnimationTertiaryContoller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _cardAnimationTertiary = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _cardAnimationTertiaryContoller,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    firtsCardWidget =
+        TertaryCardAnimation(cardAnimation: _cardAnimationTertiary)
+            .decorator(firtsCardWidget, null);
     super.initState();
   }
 
@@ -154,12 +248,14 @@ class _CardAnimation2ScreenState extends State<CardAnimation2Screen>
   void dispose() {
     _cardAnimationController.dispose();
     _cardAnimationSecondContoller.dispose();
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       backgroundColor: Colors.black,
       body: SizedBox.expand(
@@ -176,10 +272,13 @@ class _CardAnimation2ScreenState extends State<CardAnimation2Screen>
                   runSpacing: 10,
                   alignment: WrapAlignment.center,
                   children: List.generate(
-                    Colors.primaries.length,
+                    itemCount,
                     (index) {
+                      final initialOffset = _initialOffsets[index];
+
                       return SecondAnimationCircleWidget(
-                        cardAnimation: _cardAnimationSecond,
+                        cardAnimation: _circleAnimations[index],
+                        initialOffset: initialOffset,
                       ).decorator(
                         CircleWidget(
                           index: index,
@@ -194,73 +293,56 @@ class _CardAnimation2ScreenState extends State<CardAnimation2Screen>
             ),
             firtsCardWidget,
             Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 100,
-                    width: double.infinity,
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                _cardAnimationController.reverse();
-                              },
-                              icon: Icon(Icons.arrow_back),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                _cardAnimationController.forward();
-                              },
-                              icon: Icon(Icons.play_arrow),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                _cardAnimationController.reset();
-                              },
-                              icon: Icon(Icons.restart_alt),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                _cardAnimationSecondContoller.reverse();
-                                setState(() {});
-                              },
-                              icon: Icon(Icons.arrow_back),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                _cardAnimationSecondContoller.forward();
-                                setState(() {});
-                              },
-                              icon: Icon(Icons.play_arrow),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                setState(() {});
-                                _cardAnimationSecondContoller.reset();
-                              },
-                              icon: Icon(Icons.restart_alt),
-                            ),
-                          ],
-                        ),
-                      ],
+              bottom: 150,
+              child: TextButton(
+                style: ButtonStyle(
+                  foregroundColor: WidgetStatePropertyAll(Colors.white),
+                  backgroundColor: WidgetStatePropertyAll(Color(0xff00bf86)),
+                ),
+                onPressed: toggleAnimation,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 4),
+                  child: Text(
+                    "GET THE CARD",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ],
+                ),
               ),
-            )
+            ),
+            Positioned(
+              top: kToolbarHeight,
+              left: 16,
+              child: Text("Free Debits Card\nZero feeds",
+                  style: textTheme.headlineLarge!.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  )),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void toggleAnimation() async {
+    if (_cardAnimationController.isCompleted) {
+      _cardAnimationController.reverse();
+      await Future.delayed(const Duration(milliseconds: 500));
+      _cardAnimationSecondContoller.forward();
+    }
+    if ((_cardAnimationSecondContoller.isCompleted)) {
+      _cardAnimationSecondContoller.reverse();
+      await Future.delayed(const Duration(milliseconds: 500));
+      _cardAnimationController.forward();
+    }
+    print("lucadev state ${_cardAnimationController.status}");
+    print("lucadev state ${_cardAnimationSecondContoller.status}");
+    // if (!_cardAnimationTertiaryContoller.isCompleted ) {
+    //   _cardAnimationTertiaryContoller.forward();
+    // }
   }
 }
 
