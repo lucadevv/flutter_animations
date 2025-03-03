@@ -1,6 +1,8 @@
 import 'package:animations/home_screen/home_screen.dart';
 import 'package:flutter/material.dart';
 
+import 'home_screen/bread_screen.dart';
+import 'home_screen/card_animation_2_screen.dart';
 import 'home_screen/card_animation_screen.dart';
 import 'splash_screen/not_fount_screen.dart';
 import 'splash_screen/splash_screen.dart';
@@ -38,6 +40,14 @@ class MyApp extends StatelessWidget {
       case CardAnimationScreen.name:
         return MaterialPageRoute(
           builder: (context) => CardAnimationScreen(),
+        );
+      case CardAnimation2Screen.name:
+        return MaterialPageRoute(
+          builder: (context) => CardAnimation2Screen(),
+        );
+      case BreadScreen.name:
+        return MaterialPageRoute(
+          builder: (context) => BreadScreen(),
         );
 
       default:
